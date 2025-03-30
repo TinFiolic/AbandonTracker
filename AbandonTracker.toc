@@ -1,0 +1,9 @@
+## Interface: 11404
+## Title: AbandonTracker
+## Notes: Tracks abandoned quests and their related items
+## Author: Tin Fiolić
+## Version: 1.0
+## Dependencies: Questie
+## SavedVariables: AbandonTrackerDB
+
+AbandonTracker.lua
