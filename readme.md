@@ -17,14 +17,10 @@ AbandonTracker is a lightweight addon for World of Warcraft Classic that tracks 
 - Identifies quest source items (items provided by quest givers)
 - Lists required items for abandoned quests
 - Maintains a history of abandoned quests
-- Simple slash commands for managing abandoned quests
 
 ## Commands
 
-- `/at list` - Shows your recently abandoned quests
-- `/at clear` - Clears your abandoned quest history
-- `/at check [questID]` - Checks items for a specific quest ID
-- `/at scan` - Manually scans your quest log (only necessary if addon fails to load your quest)
+- `/at` - Display UI (alternative to clicking the minimap button)
 
 ## Installation
 
