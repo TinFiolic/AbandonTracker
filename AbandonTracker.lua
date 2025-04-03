@@ -14,7 +14,7 @@ frame:RegisterEvent("PLAYER_LOGOUT")
 -- Table to store quest item data
 AT.questItems = {}
 
--- Database to store quest titles for abandoned quests
+-- Database to store quest titles for abandoned quests with timestamps
 AT.abandonedQuests = {}
 
 -- Table to track active quests
@@ -22,6 +22,10 @@ AT.activeQuests = {}
 
 -- Flag to track if Questie is available
 AT.questieAvailable = false
+AT.questieRetryCount = 0
+
+-- Initialize frame for event handling
+AT.frame = CreateFrame("Frame")
 
 -- Function to get quest title using tooltip method if API fails
 function AT:GetQuestTitle(questID)
@@ -70,6 +74,28 @@ function AT:CheckQuestie()
     
     self.questieAvailable = true
     return true
+end
+
+-- Attempt to connect to Questie with retries
+function AT:TryConnectQuestie()
+    if self:CheckQuestie() then
+        print("|cff33ff99AbandonTracker|r: Questie detected. Using Questie's database for quest items.")
+        -- Scan quest log to track existing quests
+        self:ScanQuestLog()
+        return true
+    else
+        self.questieRetryCount = self.questieRetryCount + 1
+        
+        if self.questieRetryCount < 3 then
+            print("|cffff9900AbandonTracker|r: Questie not detected yet. Will retry in 10 seconds...")
+            C_Timer.After(10, function() 
+                self:TryConnectQuestie() 
+            end)
+        else
+            print("|cffff0000AbandonTracker|r: Questie is necessary to run AbandonTracker! Please use /reload to manually reload your UI after Questie has fully loaded.")
+        end
+        return false
+    end
 end
 
 -- Scan the quest log and add all active quests to our tracking
@@ -136,24 +162,34 @@ frame:SetScript("OnEvent", function(self, event, ...)
     if event == "ADDON_LOADED" and ... == addonName then
         if not AbandonTrackerDB then
             AbandonTrackerDB = {
+                characters = {}
+            }
+        end
+        
+        if not AbandonTrackerDB.characters then
+            AbandonTrackerDB.characters = {}
+        end
+        
+        local playerKey = AT:GetPlayerKey()
+        
+        if not AbandonTrackerDB.characters[playerKey] then
+            AbandonTrackerDB.characters[playerKey] = {
                 abandonedQuests = {},
                 customQuestItems = {}
             }
         end
+		
+		if AbandonTrackerUI then
+            AbandonTrackerUI:Init()
+        end
         
-        AT.abandonedQuests = AbandonTrackerDB.abandonedQuests or {}
-        print("|cff33ff99AbandonTracker|r: Loaded. Tracking abandoned quests.")
+        AT.abandonedQuests = AbandonTrackerDB.characters[playerKey].abandonedQuests or {}
+        print("|cff33ff99AbandonTracker|r v1.01: Loaded. Tracking abandoned quests for " .. playerKey .. ".")
         
     elseif event == "PLAYER_ENTERING_WORLD" then
         -- Check for Questie after player enters world (ensures Questie is fully loaded)
         C_Timer.After(2, function()
-            if AT:CheckQuestie() then
-                print("|cff33ff99AbandonTracker|r: Questie detected. Using Questie's database for quest items.")
-                -- Scan quest log to track existing quests
-                AT:ScanQuestLog()
-            else
-                print("|cffff0000AbandonTracker|r: Questie is necessary to run AbandonTracker! Please install and enable Questie.")
-            end
+            AT:TryConnectQuestie()
         end)
         
     elseif event == "QUEST_ACCEPTED" then
@@ -165,9 +201,21 @@ frame:SetScript("OnEvent", function(self, event, ...)
         
         if AT.activeQuests[questID] then
             local questTitle = AT:GetQuestTitle(questID)
+            local timestamp = date("%Y-%m-%d %H:%M:%S")
             
-            AT.abandonedQuests[questID] = questTitle
-            AbandonTrackerDB.abandonedQuests[questID] = questTitle
+            AT.abandonedQuests[questID] = {
+                title = questTitle,
+                timestamp = timestamp,
+                items = AT:GetQuestItemsFromQuestie(questID)
+            }
+            
+            local playerKey = AT:GetPlayerKey()
+            if not AbandonTrackerDB.characters[playerKey] then
+                AbandonTrackerDB.characters[playerKey] = {
+                    abandonedQuests = {}
+                }
+            end
+            AbandonTrackerDB.characters[playerKey].abandonedQuests[questID] = AT.abandonedQuests[questID]
             
             print("|cff33ff99AbandonTracker|r: You abandoned quest: |cffff6600" .. questTitle .. "|r")
             
@@ -186,7 +234,11 @@ frame:SetScript("OnEvent", function(self, event, ...)
         end
         
     elseif event == "PLAYER_LOGOUT" then
-        AbandonTrackerDB.abandonedQuests = AT.abandonedQuests
+        local playerKey = AT:GetPlayerKey()
+        if not AbandonTrackerDB.characters[playerKey] then
+            AbandonTrackerDB.characters[playerKey] = {}
+        end
+        AbandonTrackerDB.characters[playerKey].abandonedQuests = AT.abandonedQuests
     end
 end)
 
@@ -274,47 +326,61 @@ function AT:DisplayQuestieItems(questID, questTitle)
     end
 end
 
+-- Function to get a unique key for the current character
+function AT:GetPlayerKey()
+    local playerName = UnitName("player")
+    local realmName = GetRealmName()
+    return playerName .. "-" .. realmName
+end
+
+
 -- Enhanced slash commands
 SLASH_ABANDONTRACKER1 = "/at"
 SLASH_ABANDONTRACKER2 = "/abandontracker"
 SlashCmdList["ABANDONTRACKER"] = function(msg)
     local command, rest = msg:match("^(%S*)%s*(.-)$")
     
-    if command == "list" then
-        print("|cff33ff99AbandonTracker|r: Recently abandoned quests:")
-        local count = 0
-        for questID, questTitle in pairs(AT.abandonedQuests) do
-            print("  - |cffff6600" .. questTitle .. "|r (ID: " .. questID .. ")")
-            count = count + 1
-        end
-        if count == 0 then
-            print("  No abandoned quests recorded yet.")
-        end
-        
-    elseif command == "clear" then
-        AT.abandonedQuests = {}
-        AbandonTrackerDB.abandonedQuests = {}
-        print("|cff33ff99AbandonTracker|r: Cleared abandoned quest history.")
-        
-    elseif command == "check" then
-        local questID = tonumber(rest)
-        if questID and AT.questieAvailable then
-            print("|cff33ff99AbandonTracker|r: Checking quest items for quest ID: " .. questID)
-            AT:DisplayQuestieItems(questID, "Quest #" .. questID)
+    if command == "ui" or command == "" then
+        -- Toggle UI
+        if AbandonTrackerUI then
+            AbandonTrackerUI:Toggle()
         else
-            print("|cff33ff99AbandonTracker|r: Invalid quest ID or Questie not available.")
+            print("|cff33ff99AbandonTracker|r: UI module not loaded.")
         end
-        
-    elseif command == "scan" then
-        -- Force scan quest log
-        AT:ScanQuestLog()
-        print("|cff33ff99AbandonTracker|r: Quest log scanned.")
-        
-    else
-        print("|cff33ff99AbandonTracker|r: Commands:")
-        print("  /at list - Show recently abandoned quests")
-        print("  /at clear - Clear abandoned quest history")
-        print("  /at check [questID] - Check items for a specific quest ID")
-        print("  /at scan - Scan quest log for active quests")
     end
 end
+
+SLASH_ABANDONTRACKER_REMOVE1 = "/atremove"
+SlashCmdList["ABANDONTRACKER_REMOVE"] = function(msg)
+    local questID = tonumber(msg)
+    if questID and AT.abandonedQuests[questID] then
+        local playerKey = AT:GetPlayerKey()
+        AT.abandonedQuests[questID] = nil
+        if AbandonTrackerDB.characters and AbandonTrackerDB.characters[playerKey] then
+            AbandonTrackerDB.characters[playerKey].abandonedQuests[questID] = nil
+        end
+        print("|cff33ff99AbandonTracker|r: Removed quest ID " .. questID .. " from abandoned quest history.")
+        if AbandonTrackerUI and AbandonTrackerUI.frame and AbandonTrackerUI.frame:IsShown() then
+            AbandonTrackerUI:UpdateAbandonedList()
+        end
+    else
+        print("|cffff0000AbandonTracker|r: Invalid quest ID or quest not found in abandoned history.")
+    end
+end
+
+SLASH_ABANDONTRACKER_CLEAR1 = "/atclear"
+SlashCmdList["ABANDONTRACKER_CLEAR"] = function()
+    AT.abandonedQuests = {}
+    local playerKey = AT:GetPlayerKey()
+    if AbandonTrackerDB.characters and AbandonTrackerDB.characters[playerKey] then
+        AbandonTrackerDB.characters[playerKey].abandonedQuests = {}
+    else
+        AbandonTrackerDB.abandonedQuests = {}
+    end
+    print("|cff33ff99AbandonTracker|r: Cleared abandoned quest history.")
+    if AbandonTrackerUI and AbandonTrackerUI.frame and AbandonTrackerUI.frame:IsShown() then
+        AbandonTrackerUI:UpdateAbandonedList()
+    end
+end
+
+
