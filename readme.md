@@ -13,7 +13,7 @@ AbandonTracker is a lightweight addon for World of Warcraft Classic that tracks 
 ## Features
 
 - Displays abandoned quest names in chat
-- Shows detailed quest details with quest items and sources (items provided by quest givers)
+- Shows quest details with quest items and sources (items provided by quest givers), along with much more info in the UI
 - Maintains a history of abandoned quests
 
 ## Commands
