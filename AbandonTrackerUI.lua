@@ -92,8 +92,8 @@ function UI:CreateMainFrame()
 
     -- Title
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    title:SetPoint("TOP", 0, -15)
-    title:SetText("AbandonTracker v1.01")
+    title:SetPoint("TOP", 0, -20)
+    title:SetText("AbandonTracker v1.02")
 
     -- Close Button
     local closeButton = CreateFrame("Button", nil, frame, "UIPanelCloseButton")
@@ -110,7 +110,7 @@ function UI:CreateMainFrame()
     itemsHeader:SetText("Items")
     
     local timeHeader = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    timeHeader:SetPoint("TOPRIGHT", -25, -80)
+    timeHeader:SetPoint("TOPRIGHT", -35, -80)
     timeHeader:SetText("Abandoned On")
 
     -- Fix search box - correctly handling placeholder text
@@ -172,18 +172,53 @@ function UI:CreateMainFrame()
         item.time:SetJustifyH("RIGHT")
         
         item:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestLogTitleHighlight", "ADD")
-		item:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-        item:SetScript("OnClick", function(self, btn)
-            if btn == "LeftButton" then 
-                if self.questID then AT:DisplayQuestieItems(self.questID, self.questTitle) end
-            elseif btn == "RightButton" then
-                -- Right-click to remove individual quest
-                if self.questID then
-					SlashCmdList["ABANDONTRACKER_REMOVE"](tostring(self.questID))
-                end
-            end
-        end)
-        
+		item:RegisterForClicks("LeftButtonUp", "RightButtonUp", "MiddleButtonUp")
+		item:SetScript("OnClick", function(self, btn)
+			if btn == "LeftButton" then 
+				if self.questID then 
+					-- Show details and hide main window
+					AT:ShowQuestDetails(self.questID)
+					UI.frame:Hide()
+				end
+			elseif btn == "RightButton" then
+				-- Right-click to remove individual quest with confirmation
+				if self.questID then
+					StaticPopupDialogs["CONFIRM_REMOVE_QUEST"] = {
+						text = "Are you sure you want to remove this quest from the list?",
+						button1 = "Yes",
+						button2 = "No",
+						OnAccept = function()
+							SlashCmdList["ABANDONTRACKER_REMOVE"](tostring(self.questID))
+						end,
+						timeout = 0,
+						whileDead = true,
+						hideOnEscape = true,
+						preferredIndex = 3,
+					}
+					StaticPopup_Show("CONFIRM_REMOVE_QUEST")
+				end
+			elseif btn == "MiddleButton" then
+				StaticPopupDialogs["ABANDONTRACKER_NOTE"] = {
+					text = "Enter note (max 40 chars):",
+					button1 = "Save", 
+					button2 = "Cancel",
+					hasEditBox = true, 
+					maxLetters = 40,
+					OnAccept = function(popup)
+						AT:SetQuestNote(self.questID, popup.editBox:GetText())
+						UI:UpdateAbandonedList()
+					end,
+					OnShow = function(popup)
+						popup.editBox:SetText(AT:GetQuestNote(self.questID) or "")
+					end,
+					timeout = 0, 
+					whileDead = true, 
+					hideOnEscape = true
+				}
+				StaticPopup_Show("ABANDONTRACKER_NOTE")
+			end
+		end)
+		
         listItems[i] = item
     end
     
@@ -200,10 +235,21 @@ function UI:CreateMainFrame()
     clearButton:SetPoint("BOTTOMRIGHT", -10, 10)
     clearButton:SetText("Clear All")
 	clearButton:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-    clearButton:SetScript("OnClick", function()
-        SlashCmdList["ABANDONTRACKER_CLEAR"]()
-    end)
-
+	clearButton:SetScript("OnClick", function()
+		StaticPopupDialogs["CONFIRM_CLEAR_ALL"] = {
+			text = "Are you sure you want to clear all abandoned quests?",
+			button1 = "Yes",
+			button2 = "No",
+			OnAccept = function()
+				SlashCmdList["ABANDONTRACKER_CLEAR"]()
+			end,
+			timeout = 0,
+			whileDead = true,
+			hideOnEscape = true,
+			preferredIndex = 3,
+		}
+		StaticPopup_Show("CONFIRM_CLEAR_ALL")
+	end)
     return frame
 end
 
@@ -288,7 +334,18 @@ function UI:UpdateAbandonedList()
                     GameTooltip:SetText(self.questTitle)
                     GameTooltip:AddLine("Items:", 1, 1, 1)
                     GameTooltip:AddLine(itemsText, 1, 0.82, 0, true)
+					GameTooltip:AddLine("Left-click for quest details", 0.4, 1, 0.6)
                     GameTooltip:AddLine("Right-click to remove from list", 0.7, 0.7, 1)
+					GameTooltip:AddLine("Middle-click: Add note", 1, 0.5, 0)
+					GameTooltip:AddLine("__________________________________", 1, 1, 1)
+					
+					 -- Add custom note if it exists
+					local note = AT:GetQuestNote(self.questID)
+					if note then
+						GameTooltip:AddLine("Note: |cffffcc00" .. note, 0.8, 0.8, 0.8, true)
+					else
+						GameTooltip:AddLine("No note set for this quest.", 0.7, 0.7, 0.7)
+					end
                     GameTooltip:Show()
                 end)
                 item:SetScript("OnLeave", function()
@@ -298,8 +355,19 @@ function UI:UpdateAbandonedList()
                 item:SetScript("OnEnter", function(self)
                     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
                     GameTooltip:SetText(self.questTitle)
+					GameTooltip:AddLine("Left-click for quest details", 0.4, 1, 0.6)
                     GameTooltip:AddLine("Right-click to remove from list", 0.7, 0.7, 1)
-                    GameTooltip:Show()
+					GameTooltip:AddLine("Middle-click: Add note", 1, 0.5, 0)
+					GameTooltip:AddLine("__________________________________", 1, 1, 1)
+					
+					-- Add custom note if it exists
+					local note = AT:GetQuestNote(self.questID)
+					if note then
+						GameTooltip:AddLine("Note: |cffffcc00" .. note, 0.8, 0.8, 0.8, true)
+					else
+						GameTooltip:AddLine("No note set for this quest.", 0.7, 0.7, 0.7)
+					end
+					GameTooltip:Show()
                 end)
                 item:SetScript("OnLeave", function()
                     GameTooltip:Hide()

@@ -2,7 +2,7 @@
 ## Title: AbandonTracker
 ## Notes: Tracks abandoned quests and their related items
 ## Author: Tin Fiolić
-## Version: 1.01
+## Version: 1.02
 ## Dependencies: Questie
 ## SavedVariables: AbandonTrackerDB
 
