@@ -150,7 +150,7 @@ function UI:CreateMainFrame()
     local listItems = {}
     for i = 1, 15 do
         local item = CreateFrame("Button", "AbandonTrackerItem"..i, frame)
-        item:SetSize(FRAME_WIDTH - 40, ITEM_HEIGHT)
+        item:SetSize(FRAME_WIDTH - 10, ITEM_HEIGHT)
         item:SetPoint("TOPLEFT", 25, -100 - (i-1)*ITEM_HEIGHT)
         
         -- Quest Name

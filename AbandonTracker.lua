@@ -627,7 +627,6 @@ function AT:ShowQuestDetails(questID)
         
         for _, itemData in pairs(objectivesData[3]) do
             local itemID = itemData[1]
-            local required = itemData[2] or 1
             local itemName = QuestieDB.QueryItemSingle(itemID, "name") or "Unknown Item"
             
             -- Create interactive item icon
@@ -647,7 +646,7 @@ function AT:ShowQuestDetails(questID)
             -- Create text to show item name and required count
             local itemText = content:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
             itemText:SetPoint("LEFT", icon, "RIGHT", 5, 0)
-            itemText:SetText(itemName.." (0/"..required..")")
+            itemText:SetText(itemName)
             
             -- Make the icon interactive for tooltip
             local iconButton = CreateFrame("Button", nil, content)
