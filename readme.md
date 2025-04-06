@@ -1,6 +1,6 @@
 # AbandonTracker
 
-AbandonTracker helps you keep track of what items you can safely discard after abandoning quests, saving valuable bag space while leveling.
+ AbandonTracker helps you keep track of what items you can safely discard after abandoning quests, saving valuable bag space while leveling, along with detailed view of all abandoned quests.
 
 **WORKS FOR CLASSIC** (one file for all versions)
 
@@ -13,9 +13,7 @@ AbandonTracker is a lightweight addon for World of Warcraft Classic that tracks 
 ## Features
 
 - Displays abandoned quest names in chat
-- Shows quest objective items with clickable links
-- Identifies quest source items (items provided by quest givers)
-- Lists required items for abandoned quests
+- Shows detailed quest details with quest items and sources (items provided by quest givers)
 - Maintains a history of abandoned quests
 
 ## Commands
